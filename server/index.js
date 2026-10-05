@@ -1,7 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const express = require("express");
 const mongoose = require("mongoose");
-const path = require("path");
 const todoRoutes = require("./routes/todoRoutes");
 
 const app = express();
@@ -32,11 +32,35 @@ app.get("/{*splat}", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5001;
+let memoryServer;
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
+const startServer = async () => {
+  if (process.env.MONGO_URI) {
+    await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => console.error("MongoDB connection failed:", err.message));
+  } else {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("MONGO_URI is required in production.");
+    }
+    const { MongoMemoryServer } = require("mongodb-memory-server");
+    memoryServer = await MongoMemoryServer.create();
+    await mongoose.connect(memoryServer.getUri());
+    console.log("Connected to temporary MongoDB; data resets when the server stops.");
+  }
+
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+};
+
+const stopServer = async () => {
+  await mongoose.disconnect();
+  if (memoryServer) await memoryServer.stop();
+  process.exit(0);
+};
+
+process.once("SIGINT", stopServer);
+process.once("SIGTERM", stopServer);
+
+startServer().catch((err) => {
+  console.error("MongoDB connection failed:", err.message);
+  process.exit(1);
+});

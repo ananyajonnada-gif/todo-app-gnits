@@ -40,6 +40,7 @@ todo-app-gnits/
 ## Step 1: Set up the project
 
 1. Copy `server/.env.example` to `server/.env` and put in your MongoDB Atlas URL.
+   For local testing without Atlas, leave `MONGO_URI` unset; development uses a temporary MongoDB database that is cleared when the server stops.
 2. Install everything:
    ```bash
    npm install
